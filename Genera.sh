@@ -31,7 +31,7 @@ ops=(
     'unset temp_var > /dev/null 2>&1'
     'local dummy=42'
     '((dummy++))'
-    'if false; then mv fi'
+    'if false; then :; fi'
 )
 
 generate_inutile_funzione_inline() {
@@ -40,15 +40,15 @@ generate_inutile_funzione_inline() {
     echo "$name() { $op; }"
 }
 
-for i in $(seq 1 8); do
+for i in $(seq 1 "$NumFiles"); do
     file_name="$(pad_number "$i").sh"
 
     {
         echo '#!/bin/bash'
-
-        # BLOCCO 1 - PARTE ALTA: 3 funzioni in 3 punti distinti
-        echo NumFiles=$NumFiles
+        echo
+        echo "NumFiles=$NumFiles"
         echo "$(generate_inutile_funzione_inline)"
+        echo "trap '' INT"
         echo
         echo 'trimmed=$(echo "$0" | cut -c3-)'
         echo 'echo "SONO IL FILE: $trimmed"'
@@ -58,17 +58,17 @@ for i in $(seq 1 8); do
         echo "$(generate_inutile_funzione_inline)"
         echo
         echo 'pad() {'
-        echo '        local n="$1"'
-        echo '        local w="${#NumFiles}"'
-        echo '        printf "%0${w}s" "$n" | tr " " "0"'
-        echo "        $(generate_inutile_funzione_inline)"
-        echo "        $(generate_inutile_funzione_inline)"
-        echo '    }'
-        # BLOCCO 2 - Dentro process_file: 7 funzioni mischiate
+        echo '    local n="$1"'
+        echo '    local w="${#NumFiles}"'
+        echo '    printf "%0${w}s" "$n" | tr " " "0"'
+        echo "    $(generate_inutile_funzione_inline)"
+        echo "    $(generate_inutile_funzione_inline)"
+        echo '}'
+        echo
         echo 'process_file() {'
         echo '    for _ in $(seq 1 10); do'
         echo "        $(generate_inutile_funzione_inline)"
-        echo '        n=$((1 + RANDOM % \$NumFiles))'
+        echo '        n=$((1 + RANDOM % NumFiles))'
         echo '        n=$(pad "$n")'
         echo '        f=$n.sh'
         echo "        $(generate_inutile_funzione_inline)"
@@ -84,31 +84,21 @@ for i in $(seq 1 8); do
         echo '}'
         echo
 
-        # BLOCCO 3 - Parte finale: 5 funzioni mischiate + funzione final_exit con exit 0
-        # Genero 5 funzioni inutili e raccolgo i loro nomi
-        #echo "# definizione funzioni camouflage"
-        position=$((1 + RANDOM % 5))
+        # BLOCCO 3 - Parte finale
         declare -a _fnames=()
-        for _j in {1..5}; do
+        for j in {1..5}; do
             fn_def="$(generate_inutile_funzione_inline)"
             echo "$fn_def"
             _fnames+=("${fn_def%%(*}")
-
-            # Ad esempio: alla terza funzione definita, loggo un commento o modifico qualcosa
-            if [[ $_j -eq $position ]]; then
-                echo 'initSetup'
-            fi
         done
 
+        echo 'initSetup'
         echo 'process_file'
-        # Chiamo 3 funzioni scelte a caso fra quelle definite sopra
-        #echo "# chiamate camouflage"
         for _k in {1..3}; do
-            # estraggo indice casuale da 0 a len-1
-            idx=$(( RANDOM % ${#_fnames[@]} ))
+            idx=$((RANDOM % ${#_fnames[@]}))
             echo "${_fnames[$idx]}"
         done
-        echo
+        
     } > "$file_name"
 
     chmod u+x "$file_name"
